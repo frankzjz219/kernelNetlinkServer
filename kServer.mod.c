@@ -35,8 +35,10 @@ MODULE_INFO(retpoline, "Y");
 
 static const struct modversion_info ____versions[]
 __used __section("__versions") = {
-	{ 0xf0fdf6cb, "__stack_chk_fail" },
+	{ 0x5d626f20, "kthread_create_on_node" },
+	{ 0xbca77c8c, "wake_up_process" },
 	{ 0x122c3a7e, "_printk" },
+	{ 0x29abdefa, "kfree_skb_reason" },
 	{ 0x6006375e, "__register_chrdev" },
 	{ 0x1399bb1, "class_create" },
 	{ 0xd3044a78, "device_create" },
@@ -51,22 +53,23 @@ __used __section("__versions") = {
 	{ 0xa1f25452, "netlink_kernel_release" },
 	{ 0x8f44466e, "cdev_del" },
 	{ 0xce168946, "proc_remove" },
+	{ 0xb6a5193f, "pcpu_hot" },
 	{ 0x656e4a6e, "snprintf" },
 	{ 0xa916b694, "strnlen" },
 	{ 0xf1f012c6, "__alloc_skb" },
 	{ 0x2aa4c83d, "__nlmsg_put" },
 	{ 0x9166fada, "strncpy" },
 	{ 0x2756c0b8, "netlink_unicast" },
-	{ 0x29abdefa, "kfree_skb_reason" },
 	{ 0xcbd4898c, "fortify_panic" },
 	{ 0xbdfb6dbb, "__fentry__" },
 	{ 0x3c3ff9fd, "sprintf" },
 	{ 0x619cb7dd, "simple_read_from_buffer" },
 	{ 0x5b8239ca, "__x86_return_thunk" },
+	{ 0xf0fdf6cb, "__stack_chk_fail" },
 	{ 0x2fa5cadd, "module_layout" },
 };
 
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "B9AC78B5382F1F8B747FD54");
+MODULE_INFO(srcversion, "884661A1AF1AD6B9755EC35");

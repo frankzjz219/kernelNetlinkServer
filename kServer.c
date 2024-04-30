@@ -11,6 +11,7 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/kthread.h>
+#include <linux/sched.h>
 #include <linux/string.h> // Needed for strcat and strncat functions
 
 #define DEVICE_NAME "kernel net server"
@@ -24,7 +25,7 @@ static struct cdev example_cdev;
 #define NETLINK_USER 31
 
 
-static void nl_recv_msg(struct sk_buff *skb);
+static int nl_recv_msg_thread(void *skb);
 
 static struct sock *nl_sk = NULL;
 static struct proc_dir_entry *proc_entry;  // proc文件入口
@@ -35,31 +36,35 @@ static int total_bytes = 0;    // 总字节数计数器
 /**************************************************************/
 // netlink socket的回调函数
 
-static void nl_recv_msg(struct sk_buff *skb) {
+static int nl_recv_msg_thread(void *sk) {
     struct nlmsghdr *nlh;
     int pid;
     struct sk_buff *skb_out;
+    struct sk_buff *skb = (struct sk_buff *) sk;
     char reply_msg[256] = {0};
     char *user_msg; // Pointer to store user message
     int msg_size;
     int res;
+    pid_t thread_id = current->pid;
+    printk(KERN_INFO "kServer: 当前线程号为：%d\n", thread_id);
     if(!skb)
     {
         printk(KERN_ERR "kServer: NULL pointer of skb!\n");
+        return -EINVAL;
     }
 
     // printk(KERN_INFO "kServer: entering %s\n", __FUNCTION__);
     if (skb->len < nlmsg_total_size(0)) 
     {
         printk(KERN_ERR "kServer: received invalid skb length\n");
-        return;
+        return -EINVAL;
     }
     nlh = (struct nlmsghdr *)skb->data;
     // Calculate the message size
     msg_size = NLMSG_PAYLOAD(nlh, 0);
     if (msg_size < 0) {
         printk(KERN_ERR "kServer: received invalid payload size\n");
-        return;
+        return -EINVAL;
     }
     
     pid = nlh->nlmsg_pid;
@@ -70,7 +75,7 @@ static void nl_recv_msg(struct sk_buff *skb) {
     if(msg_size == 0)
     {
         printk(KERN_ERR "kServer: got empty message!\n");
-        return;
+        return -EINVAL;
     }
     else printk(KERN_INFO "kServer: received message: [%s], size: %d\n", user_msg, msg_size);
 
@@ -84,14 +89,14 @@ static void nl_recv_msg(struct sk_buff *skb) {
     skb_out = nlmsg_new(reply_len, 0);
     if (!skb_out) {
         printk(KERN_ERR "kServer: Failed to allocate new skb\n");
-        return;
+        return -ENOMEM;
     } 
 
     nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, reply_len, 0);
     if (!nlh) {
         printk(KERN_ERR "kServer: Failed to put nlmsg\n");
         nlmsg_free(skb_out);
-        return;
+        return -ENOMEM;
     }
     // Copy the constructed message into the Netlink message payload
     
@@ -105,9 +110,23 @@ static void nl_recv_msg(struct sk_buff *skb) {
     res = nlmsg_unicast(nl_sk, skb_out, pid);
 
     if (res < 0)
+    {
         printk(KERN_ERR "kServer: Error while sending back to user\n");
+        return res;
+    }
+    return 0;
 }
 
+static void nl_recv_msg(struct sk_buff *skb)
+{
+    struct task_struct *thread;
+
+    thread = kthread_run(nl_recv_msg_thread, skb, "nl_recv_thread");
+    if (IS_ERR(thread)) {
+        printk(KERN_ERR "Failed to create kernel thread: %ld\n", PTR_ERR(thread));
+        kfree_skb(skb);
+    }
+}
 
 // proc文件的读取操作
 static ssize_t proc_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos) {
